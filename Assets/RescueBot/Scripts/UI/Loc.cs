@@ -28,6 +28,8 @@ namespace RescueBot.UI
             ["Legend"] = "범례", ["Road"] = "도로", ["Crossable debris"] = "넘을 수 있는 잔해", ["Solid obstacle"] = "통과 불가 장애물",
             ["Start point"] = "출발지", ["Goal"] = "목적지", ["Route"] = "경로", ["Rover"] = "로봇",
             ["Settings"] = "설정",
+            ["Vision model"] = "영상 인식 방식", ["Classic (colour rule)"] = "고전 (색 규칙)", ["CNN (U-Net)"] = "CNN (U-Net)",
+            ["CNN model missing"] = "CNN 모델을 찾을 수 없음",
             ["Rover camera"] = "로봇 카메라 영상", ["Perception"] = "영상 인식 결과",
             ["road · debris (crossable) · solid · heading"] = "도로 · 잔해(넘을 수 있음) · 장애물 · 선택 방향",
             ["Decision"] = "판단", ["Trip"] = "이동", ["Totals"] = "누적", ["Recent trips"] = "최근 이동",

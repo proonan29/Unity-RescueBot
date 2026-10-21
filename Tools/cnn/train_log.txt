@@ -1,0 +1,22 @@
+device=cuda train=14400 val=1800 load=8s
+train class share [0.5717824697494507, 0.0032763550989329815, 0.42494112253189087]
+class weights [0.2373860478401184, 2.44319748878479, 0.31941649317741394]
+params 255747
+CLASSICAL on val: acc=1.0000 IoU road/cross/other=[1.0, 1.0, 1.0]
+ep   5 loss=0.0170 val acc=0.9980 IoU=[0.997, 0.907, 0.996]  (35s)
+ep  10 loss=0.0083 val acc=0.9993 IoU=[0.999, 0.994, 0.998]  (69s)
+ep  15 loss=0.0072 val acc=0.9995 IoU=[0.999, 0.996, 0.999]  (104s)
+ep  20 loss=0.0034 val acc=0.9997 IoU=[0.999, 0.998, 0.999]  (138s)
+ep  25 loss=0.0019 val acc=0.9998 IoU=[1.0, 0.998, 1.0]  (173s)
+ep  30 loss=0.0022 val acc=0.9998 IoU=[1.0, 0.999, 1.0]  (207s)
+FINAL val acc 0.9998 IoU road/cross/other [1.0, 0.999, 1.0]
+confusion rows=truth cols=pred
+ tensor([[14810936,       17,     3032],
+        [       0,    98101,        8],
+        [    1747,      109, 11006050]])
+DARK (x0.55, bluish) classical acc=0.4316 IoU=[0.046, 0.969, 0.413] | CNN acc=0.9960 IoU=[0.993, 0.998, 0.991]
+D:\UnityAIProjs\DigitalTwin\RescueBot\Tools\cnn\train_cnn.py:135: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter has become the default. Learn more about the new export logic: https://docs.pytorch.org/docs/stable/onnx_export.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html
+  torch.onnx.export(net, dummy, args.out, input_names=['image'], output_names=['logits'], opset_version=17, dynamo=False)
+exported Assets/RescueBot/Resources/rescue_seg.onnx 1002 KB
+onnx check ok
+STANDARD LIGHTING val_std: classical acc=0.9999 IoU=[1.0, 1.0, 1.0] | CNN acc=0.9998 IoU=[1.0, 0.999, 1.0]

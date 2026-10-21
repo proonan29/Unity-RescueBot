@@ -1,1 +1,1 @@
-﻿public static class RefreshAssets { public static string Run(){ UnityEditor.AssetDatabase.Refresh(); return "refreshed"; } }
+public static class RefreshAssets { public static string Run(){ UnityEditor.AssetDatabase.Refresh(UnityEditor.ImportAssetOptions.ForceUpdate); UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation(); return "refreshed+compile requested"; } }

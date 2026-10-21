@@ -104,6 +104,8 @@ namespace RescueBot
 
         public void StopRun() { running = false; onChanged?.Invoke(); }
 
+        /// <summary>Choose the perception model: false = classic colour rule, true = CNN (U-Net via Inference Engine).</summary>
+        public bool SetPerception(bool cnn) { bool ok = PerceptionSwitch.Set(cnn); onChanged?.Invoke(); return ok; }
         public void SetLoop(bool b) { loop = b; if (sim != null) sim.loop = b; onChanged?.Invoke(); }
         public void SetView(ViewMode m) { rig.SetMode(m); view.hideOverlays = m == ViewMode.Onboard; onChanged?.Invoke(); }
 

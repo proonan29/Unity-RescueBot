@@ -62,9 +62,19 @@ namespace RescueBot.Core
         public float roadFraction; // share of road pixels in the lower half
     }
 
+    /// <summary>Per-pixel road / crossable / other classifier. img is bottom-to-top (Texture2D order); seg must be filled top-to-bottom (w*h).</summary>
+    public interface ISegmenter
+    {
+        string Name { get; }
+        void Segment(Color32[] img, int w, int h, byte[] seg);
+    }
+
     public static class Perception
     {
         public const byte Road = 0, Cross = 1, Other = 2;
+
+        /// <summary>Pluggable pixel classifier. null = the classical colour rule (<see cref="ClassOf"/>); set a CNN segmenter to compare.</summary>
+        public static ISegmenter Segmenter;
 
         /// <summary>Pixel colour -> class. Asphalt is grey (low saturation, mid value); hazard debris is saturated yellow/orange.</summary>
         public static byte ClassOf(Color32 c)
@@ -91,16 +101,15 @@ namespace RescueBot.Core
             int w = cam.w, h = cam.h;
             var sc = reuse != null && reuse.n == w ? reuse : new Scan { n = w, w = w, h = h, X = new float[w], Z = new float[w], cls = new byte[w], seg = new byte[w * h], row = new int[w] };
             int roadLow = 0, lowCount = 0;
-            for (int v = 0; v < h; v++)
-            {
-                int src = (h - 1 - v) * w;
-                for (int u = 0; u < w; u++)
+            if (Segmenter != null) Segmenter.Segment(img, w, h, sc.seg);
+            else
+                for (int v = 0; v < h; v++)
                 {
-                    byte c = ClassOf(img[src + u]);
-                    sc.seg[v * w + u] = c;
-                    if (v >= h / 2) { lowCount++; if (c == Road) roadLow++; }
+                    int src = (h - 1 - v) * w;
+                    for (int u = 0; u < w; u++) sc.seg[v * w + u] = ClassOf(img[src + u]);
                 }
-            }
+            for (int v = h / 2; v < h; v++)
+                for (int u = 0; u < w; u++) { lowCount++; if (sc.seg[v * w + u] == Road) roadLow++; }
             sc.roadFraction = lowCount > 0 ? roadLow / (float)lowCount : 0f;
             for (int u = 0; u < w; u++)
             {

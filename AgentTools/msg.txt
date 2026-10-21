@@ -1,0 +1,8 @@
+CNN(U-Net) ?곸긽 ?몄떇 異붽?: Inference Engine ?곕룞, UI/CLI ?꾪솚, 怨좎쟾 ?鍮??됯?
+
+- Perception??ISegmenter ?쒖엫, CnnSegmenter(rescue_seg.onnx, ~2.4ms/frame)
+- ?숈뒿 ?곗씠???숈뒿 ?ㅽ겕由쏀듃(Tools/cnn), 議곕챸 ?낅┰ ?섎꽕?? ?쇰꺼 ?뚮뜑留?- 鍮꾧탳: ?쒕뱶 1-3, ?꾩갑 21/24 -> 23/24, 異⑸룎 23 -> 13, ?대몢??議곕챸?먯꽌 ?뺥솗??43% -> 99.6%
+- Docs/CNN.md 異붽?, Dataset/ gitignore
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01JNuRpkomNVu2BjCvUzs5iB

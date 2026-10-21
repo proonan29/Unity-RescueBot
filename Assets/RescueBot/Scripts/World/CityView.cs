@@ -332,6 +332,42 @@ namespace RescueBot.World
             return readTex.GetPixels32();
         }
 
+        /// <summary>
+        /// Ground-truth class image(s) for training: re-renders the same poses with every surface replaced by a flat unlit colour
+        /// of its albedo class (0 road, 1 crossable debris, 2 other incl. sky). Rows bottom-to-top like <see cref="Grab"/>; value in the R/B channels.
+        /// </summary>
+        public readonly Dictionary<string, int> labelInfo = new Dictionary<string, int>();
+        public Color32[][] GrabLabelsBatch(IList<Pose> poses)
+        {
+            labelInfo.Clear();
+            var res = new Color32[poses.Count][];
+            if (perceptionCam == null || root == null) return res;
+            var rends = root.GetComponentsInChildren<MeshRenderer>(true);
+            var orig = new Material[rends.Length][];
+            var lc = new[] { new Color(0, 0, 0), new Color(1, 0, 0), new Color(0, 0, 1) };
+            var lab = new[] { Overlay(lc[0]), Overlay(lc[1]), Overlay(lc[2]) };
+            for (int i = 0; i < rends.Length; i++)
+            {
+                var r = rends[i]; if (r.gameObject.layer == OverlayLayer) continue;
+                orig[i] = r.sharedMaterials;
+                var m = orig[i].Length > 0 ? orig[i][0] : null;
+                // truth by object type, not by colour: asphalt + markings are road, hazard debris is crossable, everything else is other
+                string nm = r.gameObject.name;
+                byte cls = nm == "Roads" || nm == "Markings" ? Perception.Road : nm == "debris" ? Perception.Cross : Perception.Other;
+                string key = nm + ":" + cls; labelInfo.TryGetValue(key, out int nn); labelInfo[key] = nn + 1;
+                r.sharedMaterial = lab[cls];
+            }
+            var bg = perceptionCam.backgroundColor; perceptionCam.backgroundColor = lc[2];
+            var shadowsPrev = perceptionCam.GetUniversalAdditionalCameraData().renderShadows;
+            perceptionCam.GetUniversalAdditionalCameraData().renderShadows = false;
+            for (int k = 0; k < poses.Count; k++) res[k] = Grab(poses[k]);
+            perceptionCam.GetUniversalAdditionalCameraData().renderShadows = shadowsPrev;
+            perceptionCam.backgroundColor = bg;
+            for (int i = 0; i < rends.Length; i++) if (orig[i] != null) rends[i].sharedMaterials = orig[i];
+            foreach (var m in lab) DestroyImmediate(m);
+            return res;
+        }
+
         // ------------------------------------------------------------------ per frame
 
         public Vector3 RoverPos => sim != null ? new Vector3(sim.pose.pos.x, 0, sim.pose.pos.y) : Vector3.zero;

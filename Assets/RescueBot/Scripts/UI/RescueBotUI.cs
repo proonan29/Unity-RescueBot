@@ -20,7 +20,7 @@ namespace RescueBot.UI
 
         UIDocument doc;
         VisualElement root, left, right;
-        Label stateLabel, decisionLabel, tripLabel, totalLabel, recentLabel, cityLabel, hintLabel;
+        Label perceptionLabel, stateLabel, decisionLabel, tripLabel, totalLabel, recentLabel, cityLabel, hintLabel;
         Image camImage, segImage;
         Texture2D segTex;
         float nextRefresh;
@@ -173,6 +173,13 @@ namespace RescueBot.UI
             lc.Add(spd);
             stateLabel = Text("", 13, Color.white, true); lc.Add(stateLabel);
 
+            Section(lc, Loc.T("Vision model"));
+            var pm = Row();
+            pm.Add(Btn(Loc.T("Classic (colour rule)"), () => app.SetPerception(false), !PerceptionSwitch.UsingCnn));
+            pm.Add(Btn(Loc.T("CNN (U-Net)"), () => { if (!app.SetPerception(true)) perceptionLabel.text = Loc.T("CNN model missing"); }, PerceptionSwitch.UsingCnn));
+            lc.Add(pm);
+            perceptionLabel = Text("", 10, Dim); lc.Add(perceptionLabel);
+
             Section(lc, Loc.T("Camera view"));
             var vr = Row();
             vr.Add(Btn(Loc.T("Overview"), () => app.SetView(ViewMode.Overview), app.rig.mode == ViewMode.Overview));
@@ -272,6 +279,7 @@ namespace RescueBot.UI
             var sim = app.sim; if (sim == null || stateLabel == null) return;
             var city = sim.city;
             cityLabel.text = $"{Loc.T("seed")} {city.cfg.seed} · {city.obstacles.Count} {Loc.T("obstacles")} · {city.blockedEdges} {Loc.T("blocked roads")} · {city.roughEdges} {Loc.T("rough roads")}";
+            if (perceptionLabel != null && (PerceptionSwitch.UsingCnn || perceptionLabel.text.Length == 0 || perceptionLabel.text == "Classic colour rule")) perceptionLabel.text = PerceptionSwitch.Describe();
             stateLabel.text = $"{StateName(sim.state)}  ·  {sim.time:0}{Loc.T("s")}" + (app.running ? "" : "  (" + Loc.T("Stop") + ")");
             var d = sim.decision;
             decisionLabel.text = $"{Loc.T("action")}: {ActName(d.act)}\n{Loc.T("heading")}: {d.heading * Mathf.Rad2Deg:+0;-0;0}°   {Loc.T("clearance")}: {Mathf.Min(d.clearance, 99f):0} m\n{Loc.T("speed")}: {sim.v:0.0} m/s";

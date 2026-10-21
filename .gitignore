@@ -45,3 +45,10 @@ crashlytics-build.properties
 /AgentTools/_*.txt
 /AgentTools/_combined.cs
 
+
+/Dataset/
+/Dataset_*/
+
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/AgentTools/msg.txt

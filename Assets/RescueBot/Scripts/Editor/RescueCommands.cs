@@ -192,7 +192,8 @@ namespace RescueBot.EditorTools
                                  [CliArg("speed", "Speed multiplier, 0 = unchanged")] float speed = 0f,
                                  [CliArg("view", "overview|top|chase|onboard")] string view = "",
                                  [CliArg("lang", "ko|en")] string lang = "",
-                                 [CliArg("show_route", "true/false")] string showRoute = "")
+                                 [CliArg("show_route", "true/false")] string showRoute = "",
+                                 [CliArg("perception", "classic|cnn")] string perception = "")
         {
             var app = App(out var err); if (app == null) return err;
             if (running != "") app.running = running == "true";
@@ -201,21 +202,46 @@ namespace RescueBot.EditorTools
             if (view != "") app.SetView(view.StartsWith("t") ? ViewMode.Top : view.StartsWith("c") ? ViewMode.Chase : view.StartsWith("on") || view.StartsWith("r") ? ViewMode.Onboard : ViewMode.Overview);
             if (lang != "") Loc.Korean = lang == "ko";
             if (showRoute != "") app.view.showRoute = showRoute == "true";
+            if (perception != "" && !app.SetPerception(perception.ToLower().Contains("cnn"))) return "error: CNN model not found";
             RefreshUI(); MarkDirty(app);
-            return $"running={app.running} loop={app.loop} speed={app.speed} view={app.rig.mode} lang={(Loc.Korean ? "ko" : "en")}";
+            return $"running={app.running} loop={app.loop} speed={app.speed} view={app.rig.mode} lang={(Loc.Korean ? "ko" : "en")} perception={PerceptionSwitch.Describe()}";
         }
 
         // ------------------------------------------------------------------ headless evaluation
 
-        sealed class Harness : IDisposable
+        internal sealed class Harness : IDisposable
         {
             public GameObject go; public CityView view; public RescueSim sim;
             readonly List<CityView> hidden = new List<CityView>();
-            public Harness(CityConfig cfg)
+            readonly List<Light> offLights = new List<Light>();
+            readonly GameObject sunGo;
+            readonly UnityEngine.Rendering.AmbientMode prevMode; readonly Color prevAmbient; readonly Material prevSky; readonly bool prevFog;
+
+            /// <param name="lightSeed">0 = the standard RescueBot lighting (same as rb_setup_scene); &gt;0 = lighting randomised from that seed (training data variety).</param>
+            public Harness(CityConfig cfg, int lightSeed = 0)
             {
                 // the open scene may hold its own city at the same coordinates: hide it so the camera only sees this one
                 foreach (var cv in UnityEngine.Object.FindObjectsByType<CityView>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
                     if (cv.Visible) { cv.Visible = false; hidden.Add(cv); }
+                // and its lighting must not matter either: use our own sun + flat ambient, whatever scene happens to be open
+                foreach (var l in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                    if (l.enabled) { l.enabled = false; offLights.Add(l); }
+                prevMode = RenderSettings.ambientMode; prevAmbient = RenderSettings.ambientLight; prevSky = RenderSettings.skybox; prevFog = RenderSettings.fog;
+                float inten = 1.2f, ax = 52f, ay = -38f, shadow = 0.55f, amb = 0.52f; var tint = Color.white;
+                if (lightSeed > 0)
+                {
+                    var rnd = new System.Random(lightSeed * 31 + 7); float R() => (float)rnd.NextDouble();
+                    inten = 0.85f + R() * 0.7f; ax = 38f + R() * 35f; ay = R() * 360f - 180f; shadow = 0.35f + R() * 0.4f; amb = 0.42f + R() * 0.2f;
+                    tint = new Color(1f + (R() - 0.5f) * 0.12f, 1f, 1f + (R() - 0.5f) * 0.12f);
+                }
+                sunGo = new GameObject("RB_HarnessSun") { hideFlags = HideFlags.HideAndDontSave };
+                var sun = sunGo.AddComponent<Light>();
+                sun.type = LightType.Directional; sun.intensity = inten; sun.color = Color.white; sun.shadows = LightShadows.Soft; sun.shadowStrength = shadow;
+                sunGo.transform.rotation = Quaternion.Euler(ax, ay, 0f);
+                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+                RenderSettings.ambientLight = new Color(amb * tint.r, amb * tint.g, amb * tint.b);
+                RenderSettings.skybox = null; RenderSettings.fog = false;
+
                 go = new GameObject("RB_Harness") { hideFlags = HideFlags.HideAndDontSave };
                 view = go.AddComponent<CityView>();
                 view.litShader = Shader.Find("Universal Render Pipeline/Lit");
@@ -223,7 +249,14 @@ namespace RescueBot.EditorTools
                 sim = new RescueSim(new City(cfg), cfg.seed) { loop = true };
                 view.Build(sim);
             }
-            public void Dispose() { foreach (var cv in hidden) if (cv != null) cv.Visible = true; view.Clear(); if (view.camRT != null) { view.camRT.Release(); UnityEngine.Object.DestroyImmediate(view.camRT); } UnityEngine.Object.DestroyImmediate(go); }
+            public void Dispose()
+            {
+                foreach (var cv in hidden) if (cv != null) cv.Visible = true;
+                foreach (var l in offLights) if (l != null) l.enabled = true;
+                RenderSettings.ambientMode = prevMode; RenderSettings.ambientLight = prevAmbient; RenderSettings.skybox = prevSky; RenderSettings.fog = prevFog;
+                if (sunGo != null) UnityEngine.Object.DestroyImmediate(sunGo);
+                view.Clear(); if (view.camRT != null) { view.camRT.Release(); UnityEngine.Object.DestroyImmediate(view.camRT); } UnityEngine.Object.DestroyImmediate(go);
+            }
         }
 
         [CliCommand("rb_sim_run", "Headless: run N trips on a generated city and print the statistics (uses the real camera + perception).")]
@@ -233,7 +266,15 @@ namespace RescueBot.EditorTools
                                     [CliArg("seed", "City seed")] int seed = 1,
                                     [CliArg("spacing", "Road spacing")] float spacing = 60f,
                                     [CliArg("trips", "Trips to run")] int trips = 5,
-                                    [CliArg("max_seconds", "Wall-clock limit (s)")] float maxWall = 45f)
+                                    [CliArg("max_seconds", "Wall-clock limit (s)")] float maxWall = 45f,
+                                    [CliArg("perception", "classic|cnn")] string perception = "classic")
+        {
+            var prevSeg = Perception.Segmenter;
+            if (!PerceptionSwitch.Set(perception.ToLower().Contains("cnn"))) return "error: CNN model not found (Resources/rescue_seg.onnx)";
+            try { return SimRunCore(nx, ny, severity, seed, spacing, trips, maxWall); } finally { Perception.Segmenter = prevSeg; }
+        }
+
+        static string SimRunCore(int nx, int ny, float severity, int seed, float spacing, int trips, float maxWall)
         {
             var cfg = new CityConfig { nx = nx, ny = ny, severity = severity, seed = seed, spacing = spacing };
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -243,6 +284,7 @@ namespace RescueBot.EditorTools
                 sim.StartTrip();
                 while (sim.history.Count < trips && sw.Elapsed.TotalSeconds < maxWall) sim.Advance(5f);
                 var sb = new StringBuilder();
+                sb.AppendLine("perception: " + PerceptionSwitch.Describe());
                 sb.AppendLine(sim.Report());
                 foreach (var t in sim.history)
                     sb.AppendLine($"  #{t.index,2} {t.start,3}->{t.goal,3} {(t.success ? "ok  " : "FAIL")} {t.reason,-8} time={t.time,5:0}s dist={t.dist,5:0}m oracle={t.oracleCost,5:0} eff={t.efficiency * 100,3:0}% replans={t.replans} blockedFound={t.blockedEvents} crossed={t.crossings} coll={t.collisions}");
